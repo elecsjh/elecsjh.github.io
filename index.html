@@ -1,1 +1,613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PLC 기반 컨베이어 벨트 제어 시스템 · 전기과 캡스톤 디자인</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans+KR:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 
+<!-- X3DOM -->
+<script type="text/javascript" src="https://x3dom.org/download/x3dom.js"></script>
+<link rel="stylesheet" type="text/css" href="https://x3dom.org/download/x3dom.css">
+
+<style>
+  :root{
+    --bg:#17191C;
+    --panel:#1F2226;
+    --panel-2:#20242A;
+    --border:#2C3036;
+    --text:#E7E7E2;
+    --muted:#8B9096;
+    --amber:#F2A900;
+    --blue:#4F7CAC;
+    --green:#5FA777;
+    --red:#C1554D;
+    --mono:'IBM Plex Mono', monospace;
+    --sans:'IBM Plex Sans KR', sans-serif;
+    --display:'Space Grotesk', sans-serif;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:inherit;}
+
+  /* ---------- 상단 바 ---------- */
+  header.topbar{
+    position:fixed; top:0; left:0; right:0; z-index:50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding:0 28px; height:56px;
+    background:rgba(23,25,28,0.92);
+    backdrop-filter:blur(6px);
+    border-bottom:1px solid var(--border);
+  }
+  .brand{
+    display:flex; align-items:center; gap:10px;
+    font-family:var(--display); font-weight:600; font-size:15px;
+    letter-spacing:0.02em;
+  }
+  .status-dot{
+    width:8px; height:8px; border-radius:50%;
+    background:var(--amber);
+    box-shadow:0 0 0 0 rgba(242,169,0,0.6);
+    animation:pulse 2.2s infinite;
+  }
+  @keyframes pulse{
+    0%{box-shadow:0 0 0 0 rgba(242,169,0,0.55);}
+    70%{box-shadow:0 0 0 8px rgba(242,169,0,0);}
+    100%{box-shadow:0 0 0 0 rgba(242,169,0,0);}
+  }
+  @media (prefers-reduced-motion: reduce){
+    .status-dot{animation:none;}
+  }
+  .status-text{
+    font-family:var(--mono); font-size:11px; color:var(--muted);
+    letter-spacing:0.04em;
+  }
+  nav.toplinks{display:flex; gap:26px; font-size:13.5px; color:var(--muted);}
+  nav.toplinks a{text-decoration:none; transition:color .15s;}
+  nav.toplinks a:hover{color:var(--text);}
+
+  /* ---------- 좌측 RUNG 레일 (목차) ---------- */
+  .rail{
+    position:fixed; left:28px; top:50%; transform:translateY(-50%);
+    display:flex; flex-direction:column; gap:22px;
+    z-index:40;
+  }
+  .rail a{
+    display:flex; align-items:center; gap:10px;
+    text-decoration:none; color:var(--muted);
+    font-family:var(--mono); font-size:11px;
+  }
+  .rail a .num{
+    color:var(--amber);
+    border:1px solid var(--border);
+    padding:2px 6px;
+    background:var(--panel);
+  }
+  .rail a:hover{color:var(--text);}
+  @media (max-width: 980px){ .rail{display:none;} }
+
+  main{padding-left:0;}
+  section{
+    padding:120px 10vw 90px;
+    border-bottom:1px solid var(--border);
+  }
+  @media (max-width: 980px){
+    section{padding:100px 6vw 70px;}
+  }
+
+  h1,h2,h3{font-family:var(--display); margin:0; letter-spacing:-0.01em;}
+  .kicker{
+    font-family:var(--mono); font-size:12px; color:var(--amber);
+    margin-bottom:14px; letter-spacing:0.02em;
+  }
+
+  /* ---------- 히어로 ---------- */
+  .hero{
+    padding-top:150px;
+    display:grid; grid-template-columns:1.1fr 0.9fr; gap:40px;
+    align-items:center; min-height:82vh;
+    border-bottom:1px solid var(--border);
+  }
+  @media (max-width:980px){ .hero{grid-template-columns:1fr;} }
+  .hero h1{font-size:clamp(32px,4.4vw,54px); line-height:1.15;}
+  .hero p.lead{
+    margin-top:22px; max-width:520px; color:var(--muted); font-size:16px;
+  }
+  .meta-row{
+    display:flex; gap:28px; margin-top:36px; flex-wrap:wrap;
+  }
+  .meta-item{font-family:var(--mono); font-size:12px; color:var(--muted);}
+  .meta-item b{display:block; color:var(--text); font-size:14px; margin-bottom:4px; font-weight:500;}
+  .hero-diagram{width:100%; height:auto;}
+
+  /* ---------- 개요 스펙 카드 ---------- */
+  .grid-3{display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--border); border:1px solid var(--border);}
+  @media (max-width:800px){ .grid-3{grid-template-columns:1fr;} }
+  .spec-card{background:var(--panel); padding:26px 24px;}
+  .spec-card .label{font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:10px;}
+  .spec-card .value{font-family:var(--display); font-size:22px; color:var(--amber); margin-bottom:8px;}
+  .spec-card .desc{font-size:13.5px; color:var(--muted);}
+
+  .section-head{margin-bottom:44px; max-width:640px;}
+  .section-head h2{font-size:clamp(24px,3vw,32px);}
+  .section-head p{color:var(--muted); margin-top:14px; font-size:15px;}
+
+  /* ---------- 시스템 구성 ---------- */
+  .arch-wrap{display:grid; grid-template-columns:1fr 1fr; gap:48px; align-items:start;}
+  @media (max-width:980px){ .arch-wrap{grid-template-columns:1fr;} }
+  .arch-list{display:flex; flex-direction:column; gap:0;}
+  .arch-row{
+    display:grid; grid-template-columns:90px 1fr; gap:16px;
+    padding:18px 0; border-top:1px solid var(--border);
+  }
+  .arch-row:first-child{border-top:none;}
+  .arch-row .tag{font-family:var(--mono); font-size:11px; color:var(--blue);}
+  .arch-row h4{margin:0 0 6px; font-family:var(--sans); font-weight:600; font-size:15px;}
+  .arch-row p{margin:0; font-size:13.5px; color:var(--muted);}
+
+  /* ---------- 3D 뷰어 패널 공통 ---------- */
+  .viewer-panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:2px;
+    overflow:hidden;
+  }
+  .viewer-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:12px 18px; border-bottom:1px solid var(--border);
+    font-family:var(--mono); font-size:11px; color:var(--muted);
+  }
+  .viewer-head .dot{width:7px; height:7px; border-radius:50%; background:var(--green); display:inline-block; margin-right:8px;}
+  .viewer-stage{width:100%; height:440px; position:relative; background:#101214;}
+  .viewer-controls{
+    display:flex; gap:10px; padding:12px 18px; border-top:1px solid var(--border);
+    background:var(--panel-2);
+  }
+  button.ctrl{
+    font-family:var(--mono); font-size:11.5px; color:var(--text);
+    background:transparent; border:1px solid var(--border);
+    padding:7px 14px; cursor:pointer; letter-spacing:0.02em;
+    transition:border-color .15s, color .15s;
+  }
+  button.ctrl:hover{border-color:var(--amber); color:var(--amber);}
+  .note{
+    margin-top:16px; font-size:12.5px; color:var(--muted);
+    border-left:2px solid var(--blue); padding-left:12px;
+  }
+  .note code{font-family:var(--mono); font-size:12px; color:var(--text); background:#26292E; padding:1px 5px;}
+
+  .stage-block{margin-bottom:64px;}
+  .stage-block:last-child{margin-bottom:0;}
+  .stage-title{
+    display:flex; align-items:baseline; gap:12px; margin-bottom:16px;
+  }
+  .stage-title .stage-num{font-family:var(--mono); font-size:12px; color:var(--amber); border:1px solid var(--border); padding:2px 7px;}
+  .stage-title h3{font-size:19px; font-weight:600; font-family:var(--sans);}
+
+  /* ---------- 기대효과 ---------- */
+  .outcomes{display:grid; grid-template-columns:repeat(2,1fr); gap:1px; background:var(--border); border:1px solid var(--border);}
+  @media (max-width:800px){ .outcomes{grid-template-columns:1fr;} }
+  .outcome-card{background:var(--panel); padding:28px;}
+  .outcome-card h4{margin:0 0 10px; font-size:16px; font-family:var(--sans); font-weight:600;}
+  .outcome-card p{margin:0; color:var(--muted); font-size:13.5px;}
+
+  footer{
+    padding:60px 10vw 40px;
+    display:flex; justify-content:space-between; flex-wrap:wrap; gap:24px;
+  }
+  footer .fl{font-family:var(--mono); font-size:12px; color:var(--muted);}
+  footer .fl b{color:var(--text); display:block; margin-bottom:6px; font-weight:500; font-family:var(--sans);}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="status-dot"></span>
+    PLC-CONVEYOR / CAPSTONE
+  </div>
+  <nav class="toplinks">
+    <a href="#overview">개요</a>
+    <a href="#architecture">시스템 구성</a>
+    <a href="#x3dom">X3DOM</a>
+    <a href="#threejs">Three.js</a>
+    <a href="#outcomes">기대효과</a>
+  </nav>
+  <div class="status-text">SYSTEM · STANDBY</div>
+</header>
+
+<div class="rail">
+  <a href="#overview"><span class="num">01</span>개요</a>
+  <a href="#architecture"><span class="num">02</span>시스템 구성</a>
+  <a href="#x3dom"><span class="num">03</span>X3DOM</a>
+  <a href="#threejs"><span class="num">04</span>Three.js</a>
+  <a href="#outcomes"><span class="num">05</span>기대효과</a>
+</div>
+
+<main>
+
+  <!-- ===================== HERO ===================== -->
+  <section class="hero" style="border-bottom:1px solid var(--border);">
+    <div>
+      <div class="kicker">전기과 · 2학년 캡스톤 디자인</div>
+      <h1>PLC 기반 컨베이어 벨트<br>제어 시스템</h1>
+      <p class="lead">
+        센서 입력부터 모터 구동까지, PLC 래더 로직으로 동작하는 컨베이어 벨트 시스템을
+        설계·구현하고 그 결과를 X3DOM과 Three.js 3D 모델로 시각화합니다.
+      </p>
+      <div class="meta-row">
+        <div class="meta-item"><b>과목</b>캡스톤 디자인</div>
+        <div class="meta-item"><b>대상</b>전기과 2학년</div>
+        <div class="meta-item"><b>제어기</b>PLC (모델명 입력)</div>
+        <div class="meta-item"><b>시각화</b>X3DOM / Three.js</div>
+      </div>
+    </div>
+
+    <!-- 배선도 느낌의 SVG 다이어그램 -->
+    <svg class="hero-diagram" viewBox="0 0 420 300" xmlns="http://www.w3.org/2000/svg">
+      <rect x="20" y="30" width="110" height="46" fill="none" stroke="#4F7CAC" stroke-width="1.4"/>
+      <text x="75" y="58" fill="#8B9096" font-family="IBM Plex Mono" font-size="11" text-anchor="middle">SENSOR</text>
+
+      <rect x="170" y="20" width="110" height="66" fill="none" stroke="#F2A900" stroke-width="1.6"/>
+      <text x="225" y="48" fill="#E7E7E2" font-family="IBM Plex Mono" font-size="11" text-anchor="middle">PLC</text>
+      <text x="225" y="66" fill="#8B9096" font-family="IBM Plex Mono" font-size="9" text-anchor="middle">LADDER LOGIC</text>
+
+      <rect x="320" y="30" width="80" height="46" fill="none" stroke="#4F7CAC" stroke-width="1.4"/>
+      <text x="360" y="58" fill="#8B9096" font-family="IBM Plex Mono" font-size="11" text-anchor="middle">MOTOR</text>
+
+      <rect x="170" y="150" width="110" height="46" fill="none" stroke="#5FA777" stroke-width="1.4"/>
+      <text x="225" y="178" fill="#8B9096" font-family="IBM Plex Mono" font-size="11" text-anchor="middle">CONVEYOR</text>
+
+      <path d="M130 53 H170" stroke="#4F7CAC" stroke-width="1.4" fill="none"/>
+      <path d="M280 53 H320" stroke="#4F7CAC" stroke-width="1.4" fill="none"/>
+      <path d="M225 86 V150" stroke="#F2A900" stroke-width="1.4" fill="none"/>
+      <path d="M360 76 V173 H280" stroke="#5FA777" stroke-width="1.2" fill="none"/>
+
+      <circle cx="130" cy="53" r="3" fill="#4F7CAC"/>
+      <circle cx="320" cy="53" r="3" fill="#4F7CAC"/>
+      <circle cx="225" cy="150" r="3" fill="#F2A900"/>
+
+      <line x1="20" y1="240" x2="400" y2="240" stroke="#2C3036" stroke-width="1"/>
+      <rect x="20" y="255" width="360" height="14" fill="none" stroke="#2C3036"/>
+      <rect x="20" y="255" width="120" height="14" fill="#F2A900" opacity="0.85"/>
+      <text x="20" y="282" fill="#8B9096" font-family="IBM Plex Mono" font-size="9">BELT POSITION FEEDBACK</text>
+    </svg>
+  </section>
+
+  <!-- ===================== 01 개요 ===================== -->
+  <section id="overview">
+    <div class="section-head">
+      <div class="kicker">RUNG 01</div>
+      <h2>프로젝트 개요</h2>
+      <p>
+        물류·생산 현장에서 반복되는 이송 공정을 PLC로 자동화하는 소규모 컨베이어 시스템을
+        구현합니다. 목적, 배경, 핵심 사양을 정리했습니다.
+      </p>
+    </div>
+
+    <div class="grid-3">
+      <div class="spec-card">
+        <div class="label">목적</div>
+        <div class="value">공정 자동화</div>
+        <div class="desc">센서로 물체를 감지하고 PLC 래더 로직으로 컨베이어 모터를 자동 구동/정지시키는 제어 시스템 구현</div>
+      </div>
+      <div class="spec-card">
+        <div class="label">배경 / 필요성</div>
+        <div class="value">전공 실습 연계</div>
+        <div class="desc">전기과 교과에서 배운 PLC 프로그래밍 이론을 실제 하드웨어 시스템으로 확장 적용</div>
+      </div>
+      <div class="spec-card">
+        <div class="label">결과물</div>
+        <div class="value">시연 + 웹 게시</div>
+        <div class="desc">실물 컨베이어 시연과 3D 모델링(X3DOM/Three.js)을 홈페이지 형태로 정리해 공개</div>
+      </div>
+    </div>
+
+    <div class="note">
+      스펙 카드의 수치(사용 PLC 모델, 벨트 속도, 센서 종류 등)는 실제 설계값이 확정되면
+      <code>.spec-card .value</code> 텍스트를 교체해 채워 넣으세요.
+    </div>
+  </section>
+
+  <!-- ===================== 02 시스템 구성 ===================== -->
+  <section id="architecture">
+    <div class="section-head">
+      <div class="kicker">RUNG 02</div>
+      <h2>시스템 구성</h2>
+      <p>하드웨어 구성 요소와 신호 흐름을 정리합니다. 왼쪽은 구성 요소별 역할, 오른쪽은 실제 하드웨어 배치도(사진/도면)를 넣는 자리입니다.</p>
+    </div>
+
+    <div class="arch-wrap">
+      <div class="arch-list">
+        <div class="arch-row">
+          <div class="tag">INPUT</div>
+          <div><h4>감지 센서</h4><p>포토센서 / 근접센서로 컨베이어 위 물체 위치를 감지하여 PLC 입력 접점으로 전달</p></div>
+        </div>
+        <div class="arch-row">
+          <div class="tag">CONTROL</div>
+          <div><h4>PLC 제어기</h4><p>입력 신호에 따라 래더 로직을 실행, 모터 구동 릴레이 출력을 결정</p></div>
+        </div>
+        <div class="arch-row">
+          <div class="tag">OUTPUT</div>
+          <div><h4>모터 / 릴레이</h4><p>PLC 출력 신호를 받아 컨베이어 구동 모터를 ON/OFF 또는 정/역 제어</p></div>
+        </div>
+        <div class="arch-row">
+          <div class="tag">MECHANICAL</div>
+          <div><h4>컨베이어 프레임</h4><p>벨트, 롤러, 모터 마운트로 구성된 이송 구조물</p></div>
+        </div>
+        <div class="arch-row">
+          <div class="tag">HMI</div>
+          <div><h4>상태 표시</h4><p>운전/정지 상태를 표시하는 인디케이터 또는 소형 디스플레이</p></div>
+        </div>
+      </div>
+
+      <div class="viewer-panel">
+        <div class="viewer-head"><span class="dot"></span>HARDWARE LAYOUT — 실제 배치도/사진 삽입 위치</div>
+        <div class="viewer-stage" style="display:flex;align-items:center;justify-content:center;color:#565A5F;font-family:var(--mono);font-size:12px;">
+          &lt;img src="layout.png"&gt; 자리
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== 03 X3DOM ===================== -->
+  <section id="x3dom">
+    <div class="section-head">
+      <div class="kicker">RUNG 03</div>
+      <h2>3D 모델링 — X3DOM</h2>
+      <p>
+        X3D 씬 그래프로 컨베이어 구조를 표현하고, TimeSensor와 PositionInterpolator로
+        제품 이동을 애니메이션화했습니다. 아래는 자리표시(placeholder) 모델입니다.
+      </p>
+    </div>
+
+    <div class="viewer-panel">
+      <div class="viewer-head"><span class="dot"></span>X3DOM VIEWER — 마우스로 드래그 시 회전</div>
+      <div class="viewer-stage">
+        <x3d width="100%" height="440px">
+          <scene>
+            <viewpoint position="0 2.4 8" description="정면"></viewpoint>
+            <background skycolor="0.06 0.07 0.08"></background>
+
+            <!-- 컨베이어 프레임 -->
+            <transform translation="0 0 0">
+              <shape>
+                <appearance><material diffusecolor="0.32 0.35 0.38"></material></appearance>
+                <box size="6 0.2 1.2"></box>
+              </shape>
+            </transform>
+
+            <!-- 좌측 롤러 -->
+            <transform translation="-2.8 0 0" rotation="0 0 1 1.5708">
+              <shape>
+                <appearance><material diffusecolor="0.6 0.62 0.64"></material></appearance>
+                <cylinder radius="0.3" height="1.4"></cylinder>
+              </shape>
+            </transform>
+
+            <!-- 우측 롤러 -->
+            <transform translation="2.8 0 0" rotation="0 0 1 1.5708">
+              <shape>
+                <appearance><material diffusecolor="0.6 0.62 0.64"></material></appearance>
+                <cylinder radius="0.3" height="1.4"></cylinder>
+              </shape>
+            </transform>
+
+            <!-- 이동하는 제품(박스) -->
+            <transform def="product" translation="-2.6 0.35 0">
+              <shape>
+                <appearance><material diffusecolor="0.95 0.66 0"></material></appearance>
+                <box size="0.5 0.5 0.5"></box>
+              </shape>
+            </transform>
+
+            <timesensor def="clock" cycleinterval="4" loop="true"></timesensor>
+            <positioninterpolator def="mover" key="0 0.5 1" keyvalue="-2.6 0.35 0  0 0.35 0  2.6 0.35 0"></positioninterpolator>
+
+            <route fromnode="clock" fromfield="fraction_changed" tonode="mover" tofield="set_fraction"></route>
+            <route fromnode="mover" fromfield="value_changed" tonode="product" tofield="translation"></route>
+          </scene>
+        </x3d>
+      </div>
+      <div class="viewer-controls">
+        <span style="font-family:var(--mono); font-size:11px; color:var(--muted);">PositionInterpolator · cycle 4s · loop</span>
+      </div>
+    </div>
+
+    <div class="note">
+      실제 설계 모델(예: SolidWorks/Fusion360)을 완성하면 <code>&lt;box&gt;</code>, <code>&lt;cylinder&gt;</code> 프리미티브를
+      <code>&lt;Inline url="model.x3d"&gt;</code> 로 교체해 내보낸 X3D 파일을 불러오세요.
+    </div>
+  </section>
+
+  <!-- ===================== 04 Three.js ===================== -->
+  <section id="threejs">
+    <div class="section-head">
+      <div class="kicker">RUNG 04</div>
+      <h2>3D 모델링 — Three.js</h2>
+      <p>
+        WebGL 기반 인터랙티브 뷰어입니다. 롤러 회전, 벨트 위 제품 이동을 실시간 애니메이션으로
+        표현하고 마우스로 자유롭게 회전/확대할 수 있습니다.
+      </p>
+    </div>
+
+    <div class="viewer-panel">
+      <div class="viewer-head"><span class="dot"></span>THREE.JS VIEWER — 드래그: 회전 · 휠: 확대/축소</div>
+      <div class="viewer-stage" id="three-stage"></div>
+      <div class="viewer-controls">
+        <button class="ctrl" id="btn-toggle">일시정지</button>
+        <button class="ctrl" id="btn-reset">뷰 초기화</button>
+      </div>
+    </div>
+
+    <div class="note">
+      현재는 기하학적 프리미티브로 구성된 자리표시 모델입니다. 실제 모델을 만들면
+      <code>GLTFLoader</code>로 <code>.glb</code> 파일을 불러와 <code>scene.add(model)</code> 위치에 추가하세요.
+    </div>
+  </section>
+
+  <!-- ===================== 05 기대효과 ===================== -->
+  <section id="outcomes">
+    <div class="section-head">
+      <div class="kicker">RUNG 05</div>
+      <h2>기대효과 및 향후 계획</h2>
+    </div>
+
+    <div class="outcomes">
+      <div class="outcome-card">
+        <h4>전공 이론의 실제 구현</h4>
+        <p>PLC 프로그래밍, 시퀀스 제어 이론을 실물 하드웨어로 검증하며 전공 이해도를 높입니다.</p>
+      </div>
+      <div class="outcome-card">
+        <h4>웹 기반 결과 공유</h4>
+        <p>X3DOM/Three.js를 통해 원격에서도 시스템 구조와 동작을 직관적으로 확인할 수 있습니다.</p>
+      </div>
+      <div class="outcome-card">
+        <h4>확장 가능성</h4>
+        <p>센서 종류 추가, 분류(소팅) 기능, HMI 연동 등으로 시스템을 단계적으로 확장할 수 있습니다.</p>
+      </div>
+      <div class="outcome-card">
+        <h4>추후 보완 사항</h4>
+        <p>실측 데이터 기반 PLC 파라미터 튜닝, 실제 3D 모델 파일 교체, 고장 대응 로직 보강 예정.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="fl"><b>과목</b>캡스톤 디자인 (전기과 2학년)</div>
+  <div class="fl"><b>주제</b>PLC 기반 컨베이어 벨트 제어 시스템</div>
+  <div class="fl"><b>문의</b>이메일 / 학번 입력</div>
+</footer>
+
+<!-- ===================== Three.js (ES Module) ===================== -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+    "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+  }
+}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+const stage = document.getElementById('three-stage');
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101214);
+
+const camera = new THREE.PerspectiveCamera(45, stage.clientWidth / stage.clientHeight, 0.1, 100);
+camera.position.set(6, 4.5, 8);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(stage.clientWidth, stage.clientHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+stage.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 0.4, 0);
+
+// 조명
+scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+const dir = new THREE.DirectionalLight(0xffffff, 0.9);
+dir.position.set(5, 8, 4);
+scene.add(dir);
+
+// 바닥
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(20, 20),
+  new THREE.MeshStandardMaterial({ color: 0x1a1c1f, roughness: 1 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.position.y = -0.4;
+scene.add(floor);
+
+// 컨베이어 프레임(벨트)
+const belt = new THREE.Mesh(
+  new THREE.BoxGeometry(6, 0.2, 1.2),
+  new THREE.MeshStandardMaterial({ color: 0x3a3f45, roughness: 0.6 })
+);
+scene.add(belt);
+
+// 롤러
+const rollerGeo = new THREE.CylinderGeometry(0.3, 0.3, 1.4, 24);
+const rollerMat = new THREE.MeshStandardMaterial({ color: 0x9aa0a6, metalness: 0.4, roughness: 0.4 });
+const rollerL = new THREE.Mesh(rollerGeo, rollerMat);
+rollerL.rotation.z = Math.PI / 2;
+rollerL.position.set(-2.8, 0, 0);
+scene.add(rollerL);
+
+const rollerR = rollerL.clone();
+rollerR.position.set(2.8, 0, 0);
+scene.add(rollerR);
+
+// 이동하는 제품 박스
+const boxMat = new THREE.MeshStandardMaterial({ color: 0xf2a900, roughness: 0.5 });
+const boxGeo = new THREE.BoxGeometry(0.45, 0.45, 0.45);
+const products = [0, 1.6, 3.2].map((offset) => {
+  const m = new THREE.Mesh(boxGeo, boxMat);
+  m.position.set(-2.8 + offset, 0.32, 0);
+  scene.add(m);
+  return { mesh: m, offset };
+});
+
+let running = true;
+const speed = 0.9; // 단위/초
+const travel = 5.6; // 롤러 간 이동 거리
+
+function animate(dt) {
+  rollerL.rotation.x += dt * 2;
+  rollerR.rotation.x += dt * 2;
+
+  if (running) {
+    products.forEach((p) => {
+      p.offset += dt * speed;
+      const x = -2.8 + (p.offset % travel);
+      p.mesh.position.x = x;
+    });
+  }
+}
+
+const clock = new THREE.Clock();
+function loop() {
+  const dt = clock.getDelta();
+  animate(dt);
+  controls.update();
+  renderer.render(scene, camera);
+  requestAnimationFrame(loop);
+}
+loop();
+
+window.addEventListener('resize', () => {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w, h);
+});
+
+document.getElementById('btn-toggle').addEventListener('click', (e) => {
+  running = !running;
+  e.target.textContent = running ? '일시정지' : '재생';
+});
+
+document.getElementById('btn-reset').addEventListener('click', () => {
+  camera.position.set(6, 4.5, 8);
+  controls.target.set(0, 0.4, 0);
+  controls.update();
+});
+</script>
+
+</body>
+</html>
