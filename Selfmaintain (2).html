@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>자기유지 기동·정지 회로 실습</title>
+<style>
+:root{--navy:#14243a;--blue:#2463a6;--line:#cbd5e1;--bg:#f3f6fa;--green:#16a36a;--red:#d84b4b;--amber:#e5a323}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:#172337;font-family:Arial,"Noto Sans KR",sans-serif;line-height:1.55}
+header{background:linear-gradient(120deg,#13243b,#24558a);color:white;padding:28px 20px}
+header .wrap,main{max-width:1100px;margin:auto}h1{font-size:clamp(24px,4vw,36px);margin:0 0 8px}header p{margin:0;color:#dce9f7}
+main{padding:22px 16px 50px}.grid{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+.card{background:white;border:1px solid #e0e7ef;border-radius:14px;padding:18px;margin-bottom:18px;box-shadow:0 3px 12px #15243a0b}
+h2{font-size:20px;margin:0 0 12px;color:#183451}h3{font-size:16px;margin:14px 0 6px}
+.pill{display:inline-block;border-radius:20px;padding:3px 9px;background:#eaf2fb;color:#24558a;font-size:12px;font-weight:bold}
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}
+button{border:0;border-radius:9px;padding:12px 18px;font-weight:700;font-size:15px;cursor:pointer;color:white;box-shadow:0 2px 5px #0002}
+#start{background:#169b62}#stop{background:#d84b4b}#reset{background:#53657b}
+button:active{transform:translateY(1px)}button:focus{outline:3px solid #9bc8f5;outline-offset:2px}
+.status{display:flex;align-items:center;gap:10px;font-weight:bold;padding:10px 12px;background:#f4f7fa;border-radius:9px}
+.dot{width:13px;height:13px;border-radius:50%;background:#9aa7b5;display:inline-block}
+.dot.on{background:#18b66e;box-shadow:0 0 12px #18b66e}
+svg{width:100%;height:auto;background:#fbfdff;border:1px solid #e3eaf1;border-radius:10px}
+.wire{stroke:#8292a5;stroke-width:4;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.wire.live{stroke:#16a36a;stroke-width:5}.contact{stroke:#24384e;stroke-width:4;fill:none;stroke-linecap:round}
+.node{fill:#24384e}.svgtext{font:14px Arial,sans-serif;fill:#172337}.small{font-size:12px;fill:#526276}
+.lamp{fill:#dbe2e9;stroke:#64748b;stroke-width:2}.lamp.lit{fill:#35d887;stroke:#11804e;filter:drop-shadow(0 0 7px #35d887)}
+.table{width:100%;border-collapse:collapse;font-size:14px}.table th,.table td{padding:9px;border-bottom:1px solid #e7edf3;text-align:left;vertical-align:top}.table th{background:#f2f6fa}
+.steps{padding-left:22px}.steps li{margin:8px 0}.note{border-left:4px solid var(--amber);background:#fff8e8;padding:10px 12px;border-radius:6px;font-size:14px}
+.photo{width:100%;border-radius:10px;border:1px solid #dce4ec;display:block}.caption{font-size:12px;color:#65758a;margin-top:6px}
+.tags{display:flex;gap:7px;flex-wrap:wrap}.tags span{background:#edf3f8;padding:5px 9px;border-radius:6px;font-size:13px}
+@media(max-width:760px){.grid{grid-template-columns:1fr}.card{padding:15px}main{padding:14px 10px 35px}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <span class="pill">전기 캡스톤 실습 · 11월 4일</span>
+  <h1>자기유지 기동·정지 회로</h1>
+  <p>푸시버튼과 전자접촉기를 이용해 기동·정지 회로를 구성하고 표시등의 동작을 확인합니다.</p>
+</div></header>
+<main>
+<div class="grid">
+<section>
+<div class="card">
+<h2>1. 동작 시뮬레이터 <span class="pill">직접 눌러보기</span></h2>
+<div class="status"><i id="dot" class="dot"></i><span id="state">정지 상태 — 전자접촉기 코일 무여자</span></div>
+<div class="controls">
+<button id="start" type="button">🟢 START 기동</button>
+<button id="stop" type="button">🔴 STOP 정지</button>
+<button id="reset" type="button">초기화</button>
+</div>
+<svg viewBox="0 0 720 360" role="img" aria-label="자기유지 회로의 개념 결선도">
+<text x="25" y="28" class="svgtext" font-weight="bold">제어회로 개념도 (전원 → 정지 → 기동/자기유지 → MC 코일)</text>
+<path id="pathA" class="wire" d="M70 90 H130 M180 90 H235 M285 90 H340 M340 90 H410 M460 90 H535 M585 90 H650 V285 H70 V90"/>
+<path id="pathB" class="wire" d="M235 90 V185 H340 V90"/>
+<path id="pathC" class="wire" d="M340 90 V185 H410 V90"/>
+<text x="35" y="75" class="small">L / 제어전원</text><text x="35" y="310" class="small">N / 귀선</text>
+<path class="contact" d="M130 76 V104 M180 76 V104"/><text x="130" y="58" class="svgtext">STOP</text><text x="135" y="125" class="small">NC 11-12</text>
+<path class="contact" d="M235 76 V104 M285 76 V104"/><text x="225" y="58" class="svgtext">START</text><text x="237" y="125" class="small">NO 13-14</text>
+<path class="contact" d="M340 176 L410 176"/><text x="330" y="215" class="svgtext">MC 보조접점</text><text x="348" y="232" class="small">NO 13-14</text>
+<circle cx="560" cy="90" r="25" fill="#fff" stroke="#24384e" stroke-width="3"/><text x="548" y="95" class="svgtext" font-weight="bold">MC</text>
+<text x="520" y="45" class="svgtext">전자접촉기 코일</text><text x="550" y="130" class="small">A1 / A2</text>
+<circle id="runLamp" class="lamp" cx="610" cy="220" r="18"/><text x="585" y="255" class="svgtext">운전 표시등</text>
+<path class="wire" d="M560 115 V220 H592 M628 220 H650 V285"/>
+<text x="65" y="340" class="small">※ 교육용 논리도: 실제 단자 번호·전압·결선은 사용하는 모듈 회로도와 명판을 확인하세요.</text>
+</svg>
+<p id="explain">START를 누르면 MC 코일이 여자되고, MC의 보조 a접점이 닫혀 START 버튼을 놓아도 전류가 계속 흐릅니다.</p>
+</div>
+<div class="card">
+<h2>2. 핵심 학습 포인트</h2>
+<ol class="steps">
+<li><b>정지 버튼(STOP)은 b접점(NC)</b>입니다. 평상시 닫혀 있고 누르면 열려 제어회로를 끊습니다.</li>
+<li><b>기동 버튼(START)은 a접점(NO)</b>입니다. 평상시 열려 있고 누르는 순간 닫혀 코일에 전원을 공급합니다.</li>
+<li><b>전자접촉기(MC)의 보조 a접점</b>을 START 버튼과 병렬로 연결합니다. 이것이 자기유지 경로입니다.</li>
+<li>START에서 손을 떼면 START 접점은 다시 열리지만, MC 보조접점이 닫혀 있어 코일은 계속 여자 상태를 유지합니다.</li>
+<li>STOP을 누르면 직렬 회로가 끊기고 MC 코일이 소자되어 보조접점과 운전 표시등이 함께 꺼집니다.</li>
+</ol>
+<div class="note"><b>가장 중요한 원리:</b> START 버튼은 처음 한 번만 전류를 흘려주고, 이후에는 전자접촉기 자신의 보조 a접점이 전류 통로를 대신 유지합니다.</div>
+</div>
+</section>
+<aside>
+<div class="card">
+<h2>3. 필요 요소 및 풀네임</h2>
+<table class="table">
+<thead><tr><th>기호</th><th>풀네임 / 역할</th></tr></thead>
+<tbody>
+<tr><td><b>PB</b></td><td>Push Button Switch (푸시버튼 스위치)<br>START: a접점(NO), STOP: b접점(NC)</td></tr>
+<tr><td><b>MC</b></td><td>Magnetic Contactor (전자접촉기)<br>코일 여자 시 주접점 및 보조접점 동작</td></tr>
+<tr><td><b>A1·A2</b></td><td>Contactor Coil Terminals (전자접촉기 코일 단자)</td></tr>
+<tr><td><b>13·14</b></td><td>Normally Open Auxiliary Contact (보조 a접점, 일반적인 단자 표기)</td></tr>
+<tr><td><b>11·12</b></td><td>Normally Closed Contact (b접점, 일반적인 단자 표기)</td></tr>
+<tr><td><b>PL / H</b></td><td>Pilot Lamp / Indicator Lamp (표시등)</td></tr>
+<tr><td><b>OL</b></td><td>Overload Relay (열동형 과부하계전기, 선택 구성)</td></tr>
+<tr><td><b>CB / F</b></td><td>Circuit Breaker / Fuse (배선용 차단기 / 퓨즈, 보호기기)</td></tr>
+</tbody></table>
+<p class="caption">단자 번호는 제조사·제품에 따라 다를 수 있으므로 모듈에 표시된 회로도와 단자 표기를 우선 확인합니다.</p>
+</div>
+<div class="card">
+<h2>4. 실제 실습 모듈 사진 예시</h2>
+<img class="photo" src="https://global.discourse-cdn.com/digikey/original/3X/9/b/9b585a1085bc8db33d8f28947cef07408df3dcf5.jpeg" alt="푸시버튼과 전자접촉기가 연결된 전기 실습 보드" loading="lazy">
+<p class="caption">푸시버튼, 전자접촉기, 보조접점 및 배선이 배치된 교육용 트레이너 예시 사진. 학교 실습실의 실제 보유 모듈과 제조사·단자 배열은 다를 수 있습니다.</p>
+<p><a href="https://forum.digikey.com/t/tutorial-for-the-start-stop-and-jog-controller/41867" target="_blank" rel="noopener">사진 원문 및 실습 구성 참고</a></p>
+<img class="photo" style="margin-top:14px" src="https://www3.jeed.go.jp/hakodate/poly/kyushoku/slheod0000008elb-img/slheod0000008eti.jpg" alt="전기제어 교육용 실습 패널" loading="lazy">
+<p class="caption">차단기, 전자접촉기, 릴레이와 푸시버튼이 설치된 전기제어 훈련 패널 예시.</p>
+<p><a href="https://www3.jeed.go.jp/hakodate/poly/kyushoku/2025_of_course_system.html" target="_blank" rel="noopener">훈련 패널 사진 출처</a></p>
+</div>
+</aside>
+</div>
+<div class="card">
+<h2>5. 실습 순서</h2>
+<ol class="steps">
+<li>전원을 차단하고 무전압 상태를 확인한 뒤, 실습 모듈의 정격 전압과 단자 번호를 확인합니다.</li>
+<li>STOP b접점을 제어전원과 START·MC 코일 사이에 직렬로 배치합니다.</li>
+<li>START a접점과 MC 보조 a접점(예: 13-14)을 서로 병렬로 연결합니다.</li>
+<li>병렬 회로의 출력은 MC 코일 A1에 연결하고 A2는 제어전원 귀선에 연결합니다.</li>
+<li>운전 표시등은 MC의 별도 보조 a접점을 이용해 MC가 여자될 때 켜지도록 구성합니다. 표시등 정격 전압을 반드시 확인합니다.</li>
+<li>지도교사 확인 후 전원을 투입합니다. START를 짧게 눌러 기동, 손을 떼어 유지, STOP을 눌러 정지되는지 확인합니다.</li>
+</ol>
+<h2>6. 동작 확인표</h2>
+<table class="table"><thead><tr><th>조작</th><th>MC 코일</th><th>자기유지 접점</th><th>운전 표시등</th></tr></thead>
+<tbody><tr><td>대기 상태</td><td>소자(OFF)</td><td>열림</td><td>소등</td></tr><tr><td>START 누름</td><td>여자(ON)</td><td>닫힘</td><td>점등</td></tr><tr><td>START 놓음</td><td>여자 유지</td><td>닫힘 유지</td><td>점등 유지</td></tr><tr><td>STOP 누름</td><td>소자(OFF)</td><td>열림</td><td>소등</td></tr></tbody></table>
+<p class="note"><b>안전 주의:</b> 이 HTML은 동작 원리 학습용 시뮬레이터이며 실제 전기 설비의 결선 지시서가 아닙니다. 실제 결선은 반드시 전원 차단·무전압 확인 후 지도교사 감독 아래 진행하고, 코일 및 표시등 정격전압과 모듈 제조사 결선도를 확인하세요.</p>
+</div>
+<footer class="caption">학습 키워드: 자기유지(Self-holding) · 기동(Start) · 정지(Stop) · 전자접촉기(Magnetic Contactor) · 보조 a접점(NO) · 표시등(Pilot Lamp)</footer>
+</main>
+<script>
+let running=false;
+const $=id=>document.getElementById(id);
+function render(){
+  $('dot').classList.toggle('on',running);
+  $('runLamp').classList.toggle('lit',running);
+  $('state').textContent=running?'운전 상태 — MC 코일 여자 / 자기유지 중':'정지 상태 — 전자접촉기 코일 무여자';
+  ['pathA','pathB','pathC'].forEach(id=>$(id).classList.toggle('live',running));
+  $('explain').textContent=running
+   ?'MC 코일이 여자되어 보조 a접점(13-14)이 닫힌 상태입니다. START 버튼에서 손을 떼어도 보조접점을 통한 전류 경로가 유지됩니다. STOP을 눌러 회로를 끊어보세요.'
+   :'START를 누르면 MC 코일이 여자되고, MC의 보조 a접점이 닫혀 START 버튼을 놓아도 전류가 계속 흐릅니다.';
+}
+$('start').addEventListener('click',()=>{running=true;render()});
+$('stop').addEventListener('click',()=>{running=false;render()});
+$('reset').addEventListener('click',()=>{running=false;render()});
+render();
+</script>
+</body></html>
